@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guess The Word Game</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Configure Tailwind to use the Inter font family -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #1a1a2e; /* Dark theme background */
+        }
+        .game-button {
+            transition: all 0.2s;
+        }
+        .game-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(235, 29, 90, 0.4);
+        }
+    </style>
+</head>
+<body>
+
+<div id="app" class="w-full max-w-lg mx-4 p-8 bg-gray-800 rounded-xl shadow-2xl text-white">
+    <h1 class="text-3xl font-bold text-center mb-6 text-pink-500">Guess The Word</h1>
+    <p class="text-center text-gray-400 mb-8">Try to guess the secret word before running out of attempts!</p>
+
+    <!-- Word Display Area -->
+    <div id="word-display" class="text-5xl font-mono tracking-widest text-center mb-8 h-16 flex items-center justify-center">
+        <!-- Underscores will be injected here -->
+        Loading...
+    </div>
+
+    <!-- Game Status / Info -->
+    <div class="flex justify-between text-center mb-8 p-3 rounded-lg bg-gray-700 shadow-inner">
+        <div>
+            <p class="text-sm text-gray-300">Attempts Left</p>
+            <p id="attempts-left" class="text-3xl font-extrabold text-teal-400">6</p>
+        </div>
+        <div>
+            <p class="text-sm text-gray-300">Guessed Letters</p>
+            <p id="guessed-letters" class="text-lg font-mono tracking-wider break-words text-gray-200 h-10 overflow-hidden">None</p>
+        </div>
+    </div>
+
+    <!-- Input Area -->
+    <div id="input-area" class="flex flex-col sm:flex-row gap-3">
+        <input type="text" id="guess-input" maxlength="10" placeholder="Enter a letter or the whole word" 
+               class="flex-grow p-3 text-lg rounded-lg border-2 border-gray-600 bg-gray-900 text-white focus:outline-none focus:border-pink-500 transition duration-200"
+               onkeypress="if(event.key === 'Enter') document.getElementById('guess-button').click()">
+        <button id="guess-button" 
+                class="game-button bg-pink-600 hover:bg-pink-700 text-white font-semibold py-3 px-6 rounded-lg shadow-lg"
+                onclick="handleGuess()">
+            Guess
+        </button>
+    </div>
+
+    <!-- Messages -->
+    <p id="game-message" class="text-center mt-6 text-sm h-5 text-yellow-300"></p>
+
+    <!-- Reset Button (Hidden until game ends) -->
+    <button id="reset-button" 
+            class="game-button hidden w-full mt-6 bg-teal-500 hover:bg-teal-600 text-gray-900 font-semibold py-3 px-6 rounded-lg shadow-lg"
+            onclick="startGame()">
+        Play Again
+    </button>
+</div>
+
+
+<script>
+    // --- Game State Variables ---
+    const WORDS = ['python', 'programming', 'developer', 'algorithm', 'computer', 'keyboard', 'challenge', 'website', 'javascript', 'tailwind'];
+    let wordToGuess = '';
+    let guessedLetters = new Set();
+    const MAX_ATTEMPTS = 6;
+    let attemptsLeft = MAX_ATTEMPTS;
+
+    // --- DOM Elements ---
+    const wordDisplayEl = document.getElementById('word-display');
+    const attemptsLeftEl = document.getElementById('attempts-left');
+    const guessedLettersEl = document.getElementById('guessed-letters');
+    const guessInputEl = document.getElementById('guess-input');
+    const guessButtonEl = document.getElementById('guess-button');
+    const gameMessageEl = document.getElementById('game-message');
+    const resetButtonEl = document.getElementById('reset-button');
+    const inputAreaEl = document.getElementById('input-area');
+
+    // Utility to pick a random word
+    function getRandomWord() {
+        return WORDS[Math.floor(Math.random() * WORDS.length)];
+    }
+
+    // Function to update the visible word (e.g., '_ _ P P L _')
+    function updateWordDisplay() {
+        let display = '';
+        let isWordGuessed = true;
+        for (const letter of wordToGuess) {
+            if (guessedLetters.has(letter)) {
+                display += letter + ' ';
+            } else {
+                display += '_ ';
+                isWordGuessed = false;
+            }
+        }
+        wordDisplayEl.textContent = display.trim();
+        return isWordGuessed;
+    }
+
+    // Function to update the score/status board
+    function updateGameStatus() {
+        attemptsLeftEl.textContent = attemptsLeft;
+        
+        const sortedLetters = Array.from(guessedLetters)
+            .sort()
+            .join(', ')
+            .toUpperCase();
+            
+        guessedLettersEl.textContent = sortedLetters.length > 0 ? sortedLetters : 'None';
+    }
+
+    // --- Main Game Logic ---
+
+    function handleGuess() {
+        const guess = guessInputEl.value.toLowerCase().trim();
+        guessInputEl.value = ''; // Clear input field
+
+        if (!guess) {
+            gameMessageEl.textContent = 'Please enter a letter or the full word.';
+            return;
+        }
+
+        gameMessageEl.textContent = ''; // Clear previous message
+
+        // 1. Handle Whole Word Guess
+        if (guess.length > 1) {
+            if (guess === wordToGuess) {
+                // WIN CONDITION
+                endGame(true, `You guessed the word: ${wordToGuess}!`);
+            } else {
+                attemptsLeft--;
+                gameMessageEl.textContent = 'Wrong word guess! Try again.';
+            }
+        }
+        // 2. Handle Single Letter Guess
+        else if (guess.length === 1 && /^[a-z]$/.test(guess)) {
+            if (guessedLetters.has(guess)) {
+                gameMessageEl.textContent = `You already guessed '${guess.toUpperCase()}'. Try a new letter.`;
+                return;
+            }
+
+            guessedLetters.add(guess);
+
+            if (wordToGuess.includes(guess)) {
+                gameMessageEl.textContent = `Correct! '${guess.toUpperCase()}' is in the word.`;
+            } else {
+                attemptsLeft--;
+                gameMessageEl.textContent = `Incorrect. '${guess.toUpperCase()}' is NOT in the word.`;
+            }
+        }
+        // 3. Handle Invalid Input
+        else {
+            gameMessageEl.textContent = 'Invalid input. Please enter a single letter or the full word.';
+        }
+
+        // --- Update and Check Status ---
+        
+        // Check for Win
+        if (updateWordDisplay()) {
+            endGame(true, `You did it! The word was ${wordToGuess}!`);
+            return;
+        }
+
+        // Check for Loss
+        if (attemptsLeft <= 0) {
+            endGame(false, `You ran out of attempts! The word was ${wordToGuess}.`);
+            return;
+        }
+
+        // Always update status after a valid move
+        updateGameStatus();
+    }
+
+    function endGame(isWin, message) {
+        // Stop accepting input
+        guessButtonEl.disabled = true;
+        guessInputEl.disabled = true;
+        inputAreaEl.classList.add('hidden'); 
+
+        // Display final message
+        if (isWin) {
+            gameMessageEl.textContent = message;
+            gameMessageEl.classList.remove('text-yellow-300', 'text-red-500');
+            gameMessageEl.classList.add('text-green-400', 'text-xl', 'font-bold');
+        } else {
+            gameMessageEl.textContent = message;
+            gameMessageEl.classList.remove('text-yellow-300', 'text-green-400');
+            gameMessageEl.classList.add('text-red-500', 'text-xl', 'font-bold');
+        }
+
+        // Show reset button
+        resetButtonEl.classList.remove('hidden');
+    }
+
+    function startGame() {
+        // Reset Game State
+        wordToGuess = getRandomWord();
+        guessedLetters.clear();
+        attemptsLeft = MAX_ATTEMPTS;
+
+        // Reset UI elements
+        guessInputEl.value = '';
+        gameMessageEl.textContent = '';
+        gameMessageEl.classList.remove('text-red-500', 'text-green-400', 'text-xl', 'font-bold');
+        gameMessageEl.classList.add('text-yellow-300'); // Default color
+
+        guessButtonEl.disabled = false;
+        guessInputEl.disabled = false;
+        inputAreaEl.classList.remove('hidden');
+        resetButtonEl.classList.add('hidden');
+
+        // Initial updates
+        updateWordDisplay();
+        updateGameStatus();
+        console.log(`Word for this round: ${wordToGuess}`); // For testing/debugging
+    }
+
+    // Start the game when the page loads
+    window.onload = startGame;
+</script>
+
+</body>
+</html>
